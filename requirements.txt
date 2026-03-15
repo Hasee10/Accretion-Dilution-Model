@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+streamlit
+pandas
+plotly
+python-dotenv
+pytest
+sqlalchemy
+openpyxl
+yfinance
+groq
+httpx
+resend
+stripe

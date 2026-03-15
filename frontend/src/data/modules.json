@@ -1,0 +1,50 @@
+﻿{
+    "title":  "Financial Intelligence",
+    "items":  [
+                  {
+                      "title":  "Dashboard",
+                      "url":  "/dashboard",
+                      "icon":  "LayoutDashboard"
+                  },
+                  {
+                      "title":  "Merger Analysis",
+                      "url":  "/merger-analysis",
+                      "icon":  "TrendingUp"
+                  },
+                  {
+                      "title":  "LBO Quick Model",
+                      "url":  "/lbo-model",
+                      "icon":  "TrendingUp"
+                  },
+                  {
+                      "title":  "History",
+                      "url":  "/history",
+                      "icon":  "History"
+                  },
+                  {
+                      "title":  "Firm Library",
+                      "url":  "/firm-library",
+                      "icon":  "History"
+                  },
+                  {
+                      "title":  "DCF Valuation",
+                      "url":  "/dcf",
+                      "icon":  "TrendingUp"
+                  },
+                  {
+                      "title":  "Market News",
+                      "url":  "/news",
+                      "icon":  "TrendingUp"
+                  },
+                  {
+                      "title":  "Bookmarks",
+                      "url":  "/bookmarks",
+                      "icon":  "History"
+                  },
+                  {
+                      "title":  "Watchlist",
+                      "url":  "/watchlist",
+                      "icon":  "TrendingUp"
+                  }
+              ]
+}

@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './theme.css';
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+
+  html {
+    @apply overflow-x-hidden bg-bg-base text-text-primary;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  body {
+    @apply min-h-svh w-full overflow-x-hidden bg-bg-base text-text-primary font-ui antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(6, 182, 212, 0.08), transparent 22%),
+      radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%);
+  }
+
+  body[data-scroll-locked] {
+    overflow: unset !important;
+  }
+
+  ::selection {
+    background: rgba(249, 115, 22, 0.24);
+    color: var(--text-primary);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  @media screen and (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -240px 0;
+  }
+  100% {
+    background-position: calc(240px + 100%) 0;
+  }
+}
+
+@utility shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-overlay) 0px,
+    rgba(255, 255, 255, 0.05) 120px,
+    var(--bg-overlay) 240px
+  );
+  background-size: 240px 100%;
+  animation: shimmer 1.45s infinite linear;
+}
+
+@utility font-mono {
+  font-family: var(--font-mono);
+}
+
+@utility font-ui {
+  font-family: var(--font-ui);
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+@utility text-data-sm {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+}
+
+@utility text-data-md {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+
+@utility text-data-lg {
+  font-family: var(--font-mono);
+  font-size: 2.25rem;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+@utility text-label-sm {
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  line-height: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+@utility surface-divider {
+  border-top: 1px solid var(--border-subtle);
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.CollapsibleContent {
+  overflow: hidden;
+}
+
+.CollapsibleContent[data-state='open'] {
+  animation: slideDown 220ms ease-out;
+}
+
+.CollapsibleContent[data-state='closed'] {
+  animation: slideUp 180ms ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}

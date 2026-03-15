@@ -1,0 +1,214 @@
+:root {
+  --radius: 0.5rem;
+  
+  /* QuantEdge Premium Color Palette */
+  /* Backgrounds - layered depth */
+  --bg-base: #060608;
+  --bg-surface: #0d0d12;
+  --bg-elevated: #13131a;
+  --bg-overlay: #1a1a24;
+  
+  /* Borders */
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  
+  /* Accents */
+  --accent-primary: #f97316;    /* orange - primary CTA, positive */
+  --accent-cyan: #06b6d4;       /* cyan - secondary data */
+  --accent-violet: #7c3aed;     /* violet - tertiary */
+  --accent-emerald: #10b981;    /* green - accretive/positive */
+  --accent-rose: #f43f5e;       /* red - dilutive/negative */
+  --accent-amber: #f59e0b;      /* amber - warnings/neutral */
+  
+  /* Text */
+  --text-primary: #f0f0f8;
+  --text-secondary: #8888a0;
+  --text-muted: #44445a;
+  
+  /* Data specific */
+  --positive: #10b981;
+  --negative: #f43f5e;
+  --neutral: #f59e0b;
+  
+  /* Legacy compatibility mappings */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--bg-base);
+  --secondary: var(--bg-elevated);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-elevated);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-elevated);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--negative);
+  --border: var(--border-default);
+  --input: var(--bg-elevated);
+  --ring: var(--accent-primary);
+  
+  --sidebar: var(--bg-base);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent-primary);
+  --sidebar-primary-foreground: var(--bg-base);
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--accent-primary);
+}
+
+.light {
+  --bg-base: #f7f7fb;
+  --bg-surface: #ffffff;
+  --bg-elevated: #eef0f7;
+  --bg-overlay: #e5e8f1;
+
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-default: rgba(15, 23, 42, 0.14);
+  --border-strong: rgba(15, 23, 42, 0.22);
+
+  --text-primary: #111827;
+  --text-secondary: #5b6477;
+  --text-muted: #8b93a7;
+
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--bg-elevated);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-elevated);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-elevated);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--negative);
+  --border: var(--border-default);
+  --input: #ffffff;
+  --ring: var(--accent-primary);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--accent-primary);
+
+  --chart-1: var(--accent-primary);
+  --chart-2: var(--accent-emerald);
+  --chart-3: var(--accent-rose);
+  --chart-4: var(--accent-cyan);
+  --chart-5: var(--accent-violet);
+  --accretive: var(--positive);
+  --dilutive: var(--negative);
+}
+
+.dark {
+  /* QuantEdge uses dark theme by default - these values override light mode */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--bg-base);
+  --secondary: var(--bg-elevated);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-elevated);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-elevated);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--negative);
+  --border: var(--border-default);
+  --input: var(--bg-elevated);
+  --ring: var(--accent-primary);
+  
+  /* Legacy chart colors for compatibility */
+  --chart-1: var(--accent-primary);
+  --chart-2: var(--accent-emerald);
+  --chart-3: var(--accent-rose);
+  --chart-4: var(--accent-cyan);
+  --chart-5: var(--accent-violet);
+  --accretive: var(--positive);
+  --dilutive: var(--negative);
+}
+
+@theme inline {
+  /* QuantEdge Premium Typography */
+  --font-mono: 'DM Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  --font-ui: 'Geist', 'Inter', system-ui, sans-serif;
+  --font-display: 'Cabinet Grotesk', 'Inter', system-ui, sans-serif;
+  
+  /* Legacy font support */
+  --font-inter: var(--font-ui);
+  --font-manrope: var(--font-ui);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Color mappings for Tailwind */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* QuantEdge Premium Color Extensions */
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay: var(--bg-overlay);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-emerald: var(--accent-emerald);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-amber: var(--accent-amber);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-neutral: var(--neutral);
+}

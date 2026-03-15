@@ -1,0 +1,1021 @@
+# QuantPlatform — Complete Antigravity Prompt Suite
+### Professional-Grade Financial Intelligence Platform
+---
+
+> **How to use this document:** Each section is a self-contained prompt chunk. Feed them to Antigravity **in order**, one at a time. Wait for each chunk to finish before sending the next. This ordering matters — later chunks depend on the foundation built by earlier ones.
+
+---
+
+## FREE RESOURCES YOU NEED FIRST
+
+Before you start, register for these free-tier APIs and save the keys:
+
+| Service | What it's for | Get it at |
+|---|---|---|
+| **Groq API** | Ultra-fast LLM inference (Llama 3.3 70B free) | console.groq.com |
+| **Resend** | Transactional email (3,000/mo free) | resend.com |
+| **Supabase** | Postgres DB + Auth + Row-level security (free tier) | supabase.com |
+| **Financial Modeling Prep (FMP)** | Stock fundamentals, financials (250 calls/day free) | financialmodelingprep.com/developer |
+| **Alpha Vantage** | Real-time quotes backup (500 calls/day free) | alphavantage.co/support/#api-key |
+| **Vercel** | Deployment (free hobby tier) | vercel.com |
+
+**Environment variables you'll configure:**
+```
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+GROQ_API_KEY=
+RESEND_API_KEY=
+FMP_API_KEY=
+ALPHA_VANTAGE_KEY=
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+```
+
+---
+
+---
+
+# CHUNK 1 — Database & Auth Foundation (Supabase)
+
+**Paste this prompt to Antigravity:**
+
+```
+I am building a professional open-source quantitative finance platform called "QuantEdge" 
+deployed on Vercel. Replace the current SQLite + Clerk setup with a production-grade 
+Supabase backend. Do ALL of the following:
+
+## 1. Supabase Schema (run in Supabase SQL editor)
+
+Create the following tables with Row Level Security enabled on all of them:
+
+### users (extends Supabase auth.users)
+CREATE TABLE public.profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  company TEXT,
+  role TEXT DEFAULT 'analyst',
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+### saved_deals (Merger Analysis saves)
+CREATE TABLE public.saved_deals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  deal_name TEXT NOT NULL,
+  deal_data JSONB NOT NULL,
+  result_snapshot JSONB,
+  is_public BOOLEAN DEFAULT FALSE,
+  tags TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+### dcf_models (DCF saves)
+CREATE TABLE public.dcf_models (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  model_name TEXT NOT NULL,
+  ticker TEXT,
+  model_data JSONB NOT NULL,
+  result_snapshot JSONB,
+  is_public BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+### watchlist
+CREATE TABLE public.watchlist (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  ticker TEXT NOT NULL,
+  company_name TEXT,
+  added_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, ticker)
+);
+
+### ai_chat_history
+CREATE TABLE public.ai_chat_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  session_id UUID NOT NULL,
+  role TEXT CHECK(role IN ('user', 'assistant')) NOT NULL,
+  content TEXT NOT NULL,
+  context_type TEXT, -- 'merger', 'dcf', 'general'
+  context_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+Enable RLS on every table. Create policies so users can only read/write their own rows.
+For is_public=true rows in saved_deals and dcf_models, allow all authenticated users to SELECT.
+
+## 2. Supabase Auth Configuration
+
+In the Supabase dashboard:
+- Enable Email provider
+- Enable "Confirm email" 
+- Set site URL to NEXT_PUBLIC_APP_URL
+- Set redirect URLs to include /auth/callback
+
+## 3. Frontend Auth Pages (replace Clerk completely)
+
+Create these pages using Supabase Auth JS client (@supabase/supabase-js, @supabase/ssr):
+
+### /auth/sign-in
+- Email + Password form
+- "Remember me" checkbox
+- Forgot password link → /auth/forgot-password
+- Sign up link → /auth/sign-up
+- Show loading spinner on submit
+- On success, redirect to /dashboard
+- Show inline error messages (invalid credentials, email not confirmed)
+
+### /auth/sign-up  
+- Full Name, Email, Password, Confirm Password, Company (optional)
+- Password strength indicator (weak/medium/strong based on length + special chars)
+- On submit: create Supabase auth user, then insert into public.profiles
+- Show success screen: "Check your inbox — we sent a confirmation link to {email}"
+- Do NOT redirect yet; wait for email confirmation
+
+### /auth/forgot-password
+- Email field only
+- Call supabase.auth.resetPasswordForEmail() with redirectTo: /auth/reset-password
+- Show success message regardless of whether email exists (security)
+
+### /auth/reset-password  
+- New Password + Confirm Password
+- Call supabase.auth.updateUser({ password })
+- Redirect to /auth/sign-in on success
+
+### /auth/callback
+- Handle the OAuth/magic link callback
+- supabase.auth.exchangeCodeForSession(code)
+- Redirect to /dashboard
+
+## 4. Email Templates (in Supabase Dashboard → Auth → Email Templates)
+
+Customize all templates to match QuantEdge branding:
+- Confirmation email: Subject "Confirm your QuantEdge account"
+- Password reset: Subject "Reset your QuantEdge password"  
+- Magic link: Subject "Your QuantEdge sign-in link"
+Each should have a clean dark-themed HTML email with the QuantEdge name prominent.
+
+## 5. Session Management
+
+Create a Supabase client singleton at lib/supabase/client.ts (browser) and 
+lib/supabase/server.ts (server-side using @supabase/ssr createServerClient with cookies).
+
+Create middleware.ts at root using @supabase/ssr to:
+- Refresh sessions on every request
+- Protect all routes under /dashboard, /merger-analysis, /dcf-valuation
+- Redirect unauthenticated users to /auth/sign-in with ?redirect= param
+- After sign-in, redirect back to original URL
+
+## 6. Profile Page (/settings/profile)
+
+Form fields: Full Name, Company, Role (dropdown: Analyst, Associate, VP, Director, MD)
+Avatar upload using Supabase Storage bucket "avatars" (public bucket, 2MB limit, image only)
+Show current email (read only, with "Change email" link — not yet implemented, just show it)
+Save button calls supabase.from('profiles').update(...)
+Show toast on success/error
+
+Install packages:
+- @supabase/supabase-js
+- @supabase/ssr
+- Remove all @clerk references
+```
+
+---
+
+---
+
+# CHUNK 2 — Transactional Email via Resend
+
+**Paste this prompt to Antigravity:**
+
+```
+Integrate Resend for all transactional emails in QuantEdge. 
+Resend API key is in env as RESEND_API_KEY.
+
+## 1. Install & Setup
+npm install resend
+Create lib/email/resend.ts exporting a configured Resend client.
+
+## 2. Email Templates (React Email components)
+
+Install: npm install @react-email/components react-email
+
+Create the following React Email templates in emails/ directory:
+
+### emails/WelcomeEmail.tsx
+- Subject: "Welcome to QuantEdge, {firstName}"
+- Dark themed (#0a0a0a background, #ffffff text, #f97316 orange accent)
+- QuantEdge logo text at top (styled text, no image needed)
+- Greeting: "Welcome, {firstName}. Your account is ready."
+- Body: "You now have access to institutional-grade financial modeling tools — DCF Valuation, Merger Analysis, and AI-powered insights."
+- CTA button: "Open QuantEdge" → link to app
+- Footer: "© QuantEdge. Built for finance professionals."
+
+### emails/PasswordResetEmail.tsx
+- Subject: "Reset your QuantEdge password"
+- Same dark branding
+- Body: "A password reset was requested for your account."
+- CTA button: "Reset Password" → resetLink
+- "This link expires in 1 hour. If you didn't request this, ignore this email."
+
+### emails/DealSavedEmail.tsx
+- Subject: "Deal saved: {dealName}"
+- Confirmation that deal "{dealName}" was saved to their account
+- Shows a summary: Target Company, A/D Result (Year 3), Date saved
+- CTA: "View Deal" → link to /merger-analysis?deal={dealId}
+
+## 3. API Routes
+
+### app/api/email/welcome/route.ts (POST)
+Called server-side after successful sign-up profile creation.
+Sends WelcomeEmail using Resend.
+Body: { email, firstName }
+
+### app/api/email/deal-saved/route.ts (POST)  
+Called when user saves a deal.
+Sends DealSavedEmail.
+Body: { email, firstName, dealName, dealId, adResult }
+
+## 4. Wire up in sign-up flow
+After creating the Supabase profile successfully, call /api/email/welcome.
+
+## 5. Wire up in save deal flow
+After saving to saved_deals table, call /api/email/deal-saved.
+
+Use Resend's sandbox mode during development (emails go to Resend dashboard, not real inboxes).
+In production, verify your domain in Resend dashboard and update FROM address to noreply@yourdomain.com.
+```
+
+---
+
+---
+
+# CHUNK 3 — UI Overhaul: Data Visualization & Dashboard Feel
+
+**This is your most important UI chunk. Paste to Antigravity:**
+
+```
+Completely redesign the data visualization and dashboard aesthetics of QuantEdge.
+The current app looks like a university project. Transform it into something that 
+looks like a Bloomberg Terminal crossed with a modern SaaS product.
+Keep the dark theme but make it feel premium, data-dense, and professional.
+
+## Design System Changes
+
+### Color Palette (update globals.css / tailwind.config)
+```css
+:root {
+  /* Backgrounds - layered depth */
+  --bg-base: #060608;
+  --bg-surface: #0d0d12;
+  --bg-elevated: #13131a;
+  --bg-overlay: #1a1a24;
+  
+  /* Borders */
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  
+  /* Accents */
+  --accent-primary: #f97316;    /* orange - primary CTA, positive */
+  --accent-cyan: #06b6d4;       /* cyan - secondary data */
+  --accent-violet: #7c3aed;     /* violet - tertiary */
+  --accent-emerald: #10b981;    /* green - accretive/positive */
+  --accent-rose: #f43f5e;       /* red - dilutive/negative */
+  --accent-amber: #f59e0b;      /* amber - warnings/neutral */
+  
+  /* Text */
+  --text-primary: #f0f0f8;
+  --text-secondary: #8888a0;
+  --text-muted: #44445a;
+  
+  /* Data specific */
+  --positive: #10b981;
+  --negative: #f43f5e;
+  --neutral: #f59e0b;
+}
+```
+
+### Typography
+- Install and use "DM Mono" for all numbers, tickers, financial data
+- Install and use "Geist" for all UI text and labels
+- Install and use "Cabinet Grotesk" for headings and page titles
+- Numbers should always display in DM Mono — create a <DataValue> component that applies this
+
+### Card Design (replace all current shadcn Cards)
+Every data card should have:
+- Background: var(--bg-surface) 
+- Border: 1px solid var(--border-subtle)
+- On hover: border-color transitions to var(--border-default)
+- Top-left corner: a 1px x 24px vertical accent bar in the relevant accent color
+- No box shadows — use border instead
+- Padding: 20px
+- Inner section dividers: 1px solid var(--border-subtle)
+
+### Metric Display Cards (KPI cards at top of pages)
+Replace current large number cards with this structure:
+```
+┌─────────────────────────────────┐
+│ ▲ METRIC LABEL          [badge] │  ← small caps label, 10px, --text-muted
+│                                 │
+│  -74.4%                         │  ← 36px DM Mono, colored by positive/negative
+│  -$7.44 per share               │  ← 13px secondary
+│                                 │
+│  ████████░░░░  vs prev          │  ← optional sparkline
+└─────────────────────────────────┘
+```
+
+## EPS Bridge (Waterfall Chart) — Complete Redesign
+
+Replace current Recharts waterfall with this:
+- Use Recharts ComposedChart
+- Bar fills: 
+  - Standalone EPS bar: var(--accent-cyan) with 0.8 opacity
+  - A/D Impact: var(--negative) if dilutive, var(--positive) if accretive — with a diagonal stripe pattern (SVG pattern fill)
+  - Pro-Forma EPS bar: var(--accent-primary)
+- Add floating value labels above/below each bar in DM Mono font
+- X-axis: no tick lines, label in Geist 11px --text-secondary
+- Y-axis: left-aligned dollar signs, DM Mono, gridlines are 1px dashed var(--border-subtle)
+- Add an animated connector line between bar tops showing the flow
+- Add a "DILUTIVE" or "ACCRETIVE" badge that appears in top-right of chart, colored accordingly
+- Chart title: left-aligned, Cabinet Grotesk 14px, with a small colored dot before it
+- Background: var(--bg-elevated), border: var(--border-subtle), border-radius: 8px
+
+## Sensitivity Heatmaps — Complete Redesign
+
+Current tables look like default HTML tables. Replace with:
+- Use a proper gradient interpolation: 
+  - Most negative value = var(--negative) #f43f5e
+  - Neutral (0%) = var(--bg-overlay) 
+  - Most positive value = var(--positive) #10b981
+  - Use linear interpolation between these three stops
+- Cell size: minimum 64px wide, 36px tall
+- Text: DM Mono 12px, centered, white always (for readability on colored backgrounds)
+- Row/column headers: var(--bg-elevated) background, Geist 11px, --text-secondary, uppercase
+- Active cell (current values): white 2px border highlight
+- Hover state: brightness(1.2) + scale(1.02) transition
+- The intersection cell (current WACC × current terminal growth) should be highlighted with a white border ring
+- Add a color legend bar at bottom: "More Dilutive ←──────→ More Accretive"
+
+## DCF Cash Flow Bar Chart — Redesign
+
+Replace current Revenue/EBITDA/FCF bars with:
+- Grouped bars with these specific colors:
+  - Revenue: var(--accent-cyan) at 60% opacity — tall bar
+  - EBITDA: var(--accent-violet) at 80% opacity — medium bar
+  - FCF: var(--accent-emerald) — short bar (solid)
+- Add year-over-year growth % labels floating above each Revenue bar
+- Add a thin trend line overlay (Line component) showing FCF trajectory
+- At the top of each group, show the Year label in Cabinet Grotesk 12px
+- Grid lines: horizontal only, 1px dashed var(--border-subtle)
+- Legend: horizontal, bottom-centered, colored dots + labels
+
+## Contribution Analysis Chart — Redesign
+
+Current stacked bar chart is unclear. Replace with:
+- Side-by-side: two columns, left = Acquirer, right = Target
+- Each column has TWO stacked bar groups:
+  - Left bar: Equity Ownership % 
+  - Right bar: NI Contribution %
+- Color: Equity bars in var(--accent-primary), NI bars in var(--accent-violet)
+- Show the % values as large DM Mono numbers inside each bar segment
+- Add a center divider line with label "Acquirer vs Target"
+- If equity ownership > NI contribution for acquirer → show a warning badge "Equity Dilution Warning"
+
+## Interactive Breakeven Finder — Redesign
+
+Current slider looks basic. Replace with:
+- Full-width slider with a custom styled thumb (12px circle, --accent-primary color, white ring)
+- Track: left of thumb = --accent-primary, right of thumb = --bg-overlay
+- Above slider: show "Current Synergies: $X.XM | Required for Breakeven: $X.XM"
+- Gap/surplus indicator: "You need $X.XM MORE" in rose or "You have $X.XM BUFFER" in emerald
+- Real-time A/D percentage shown in large DM Mono type that updates as slider moves
+- Add tick marks at 25%, 50%, 75% of range
+
+## Sidebar Redesign
+
+- Width: 220px collapsed labels-only, 56px icon-only mode
+- Background: var(--bg-base) — slightly darker than main content
+- Logo area: "QE" monogram in --accent-primary, "QuantEdge" in Cabinet Grotesk
+- Section labels: 9px uppercase letterSpacing: 0.12em --text-muted
+- Active item: left 2px border in --accent-primary, background var(--bg-elevated)
+- Hover: background var(--bg-surface), smooth transition
+- Bottom: user avatar + name + email + settings gear icon
+- Add keyboard shortcut hints (⌘K etc.) next to relevant items
+
+## Global Data Table Component
+
+Create a reusable <FinanceTable> component used in History pages:
+- Alternating row backgrounds: var(--bg-surface) and var(--bg-elevated)
+- Column headers: sticky, var(--bg-base) with bottom border, uppercase Geist 10px
+- Number columns: right-aligned, DM Mono
+- Positive numbers: var(--positive), negative: var(--negative)
+- Sortable columns: show sort arrow icon on hover
+- Row hover: var(--border-subtle) background
+- Empty state: centered icon + "No deals saved yet" message
+
+## Loading States
+
+For all data fetching, replace any spinners with:
+- Skeleton screens that match the exact layout of what's loading
+- Skeleton color: var(--bg-overlay) with a shimmer animation (CSS keyframe left-to-right gradient sweep)
+- Never show a blank white flash
+
+Apply all these changes globally and consistently across both Merger Analysis and DCF pages.
+```
+
+---
+
+---
+
+# CHUNK 4 — Feature: AI Financial Analyst (Groq-Powered)
+
+**Paste this prompt to Antigravity:**
+
+```
+Add an AI Financial Analyst feature to QuantEdge powered by the Groq API 
+(model: llama-3.3-70b-versatile). This is a context-aware assistant that 
+understands the user's current financial model.
+
+GROQ_API_KEY is in env. Install: npm install groq-sdk
+
+## 1. Backend API Route: app/api/ai/chat/route.ts (POST)
+
+Request body:
+{
+  messages: [{role: 'user'|'assistant', content: string}],
+  context: {
+    type: 'merger' | 'dcf' | 'general',
+    data: object  // current model inputs and results
+  }
+}
+
+Logic:
+1. Build a system prompt based on context.type:
+
+For 'merger': 
+"You are QuantEdge AI, an expert M&A analyst and investment banker. 
+The user is currently analyzing a merger deal with these parameters: {JSON.stringify(context.data.inputs)}.
+The current results show: A/D Impact Year 3: {context.data.results.adPct}%, Pro-Forma EPS: ${context.data.results.proFormaEPS}.
+Provide concise, professional analysis. Use specific numbers from the deal. 
+Flag risks. Suggest sensitivity ranges. Keep responses under 200 words unless asked to elaborate.
+Format numbers professionally (e.g., '$2.4B' not '$2400000000'). Never give investment advice."
+
+For 'dcf':
+"You are QuantEdge AI, a valuation expert specializing in DCF analysis.
+Current model: WACC {wacc}%, Terminal Growth {tGrowth}%, Intrinsic Value ${intrinsicValue}/share.
+Provide professional commentary on valuation assumptions, WACC reasonableness for this sector, 
+and key risks to the valuation. Under 200 words unless asked."
+
+For 'general':
+"You are QuantEdge AI, a financial analysis assistant for investment banking professionals.
+Help with M&A analysis, DCF valuation, financial modeling questions, and market analysis."
+
+2. Call Groq API with model "llama-3.3-70b-versatile", max_tokens: 600, temperature: 0.3
+3. Return streamed response using ReadableStream (use Groq's stream API)
+4. Rate limit: max 20 requests per user per hour (store count in Supabase or simple in-memory map)
+
+## 2. AI Chat Panel Component
+
+Create <AIChatPanel> as a slide-in drawer from the right side (not a modal, not a separate page).
+Trigger: floating button bottom-right of each analysis page — brain icon + "AI Analyst" label.
+
+Panel design:
+- Width: 380px, height: 100vh, position: fixed right: 0 top: 0
+- Background: var(--bg-surface), border-left: 1px solid var(--border-default)
+- Header: "AI Analyst" title + current context badge (e.g., "Merger Context") + close button
+- Context banner: shows key metrics from current model in a compact 2-column grid
+  "A/D: -74.4% | EPS: $2.56 | Synergies: $0M" — DM Mono, small, muted
+- Messages area: scrollable, messages in chat bubbles
+  - User: right-aligned, var(--accent-primary) background, white text
+  - AI: left-aligned, var(--bg-elevated) background, --text-primary
+  - AI responses support markdown (bold, bullets, numbers — use react-markdown)
+  - Show a "typing" indicator (3 animated dots) while streaming
+- Input area: bottom, textarea that grows up to 4 lines, Enter to send (Shift+Enter newline)
+- Pre-built prompt chips above input (clickable to populate input):
+  For merger context: ["Explain the A/D result", "What synergies justify this deal?", "Key risks?", "Compare to market multiples"]
+  For DCF context: ["Is my WACC reasonable?", "What drives intrinsic value here?", "Sensitivity analysis explanation", "Bull/bear case scenarios"]
+
+## 3. Streaming Implementation
+
+Use fetch() with ReadableStream to handle streamed tokens.
+Show tokens as they arrive character by character in the AI message bubble.
+On error: show "AI Analyst is temporarily unavailable. Please try again." in muted text.
+
+## 4. Context Auto-Population
+
+In MergerAnalysis page: when user opens AI panel, automatically pass current 
+deal inputs + computed results as context.
+
+In DCF page: pass current operational drivers + results as context.
+
+The AI should immediately greet with a 1-sentence observation about the current model
+without the user needing to type anything. Example: 
+"I can see this deal is highly dilutive at -74.4%. Here's what's driving it — ask me anything."
+
+## 5. Chat History (Optional persistence)
+
+After each conversation, optionally save to ai_chat_history table with context_type and context_data.
+Add a "History" tab in the panel showing past conversations, grouped by date.
+```
+
+---
+
+---
+
+# CHUNK 5 — Feature: Smart Ticker Intelligence & Watchlist
+
+**Paste this prompt to Antigravity:**
+
+```
+Upgrade the Quick Target Import feature and add a Watchlist system using 
+Financial Modeling Prep API (free tier, 250 calls/day).
+
+FMP_API_KEY is in env. Base URL: https://financialmodelingprep.com/api/v3
+
+## 1. Ticker Search & Auto-Complete
+
+Replace the current simple ticker text input with a smart search component:
+- Debounced search (400ms) against FMP endpoint: /search?query={q}&limit=10&apikey={key}
+- Show dropdown with: Ticker (bold DM Mono), Company Name, Exchange badge, Market Cap
+- Keyboard navigable (arrow keys + Enter)
+- Show company logo if available from FMP /profile/{ticker}
+
+## 2. Enhanced Company Data Fetch
+
+When a ticker is loaded (Merger Analysis or DCF), fetch and populate:
+
+From FMP /profile/{ticker}:
+- companyName → deal name auto-fill
+- mktCap → calculate implied shares from this + price
+- price → Target Share Price
+- beta, sector, industry → show in a side badge
+
+From FMP /income-statement/{ticker}?limit=1:
+- netIncome → Target Net Income (M)
+- eps → show current EPS as reference
+
+From FMP /key-metrics/{ticker}?limit=1:
+- peRatio → populate P/E comparison card
+- enterpriseValue → reference data
+
+Display a "Company Card" that appears after import showing:
+- Company name + ticker + exchange
+- Sector | Industry
+- P/E: X.Xx | EV: $XXB | Beta: X.XX
+- 52-week range mini chart (if available)
+- "Data from Financial Modeling Prep" attribution link
+
+Show a yellow warning banner if the data is older than 24 hours or if FMP returns stale data.
+
+## 3. Watchlist Feature
+
+### Watchlist Page (/watchlist)
+Add to sidebar under Financial Intelligence section.
+
+Layout: Data-dense table showing all watched tickers with live-ish data.
+Columns: Ticker | Company | Price | Change% (today) | P/E | Market Cap | Added date | Actions
+
+Fetch current quote for each watchlist item from FMP /quote/{ticker}.
+Refresh button top-right to re-fetch all quotes.
+Color: price change positive = var(--positive), negative = var(--negative)
+
+Add ticker to watchlist:
+- Search bar at top of page (same autocomplete component as above)
+- Click "+ Add" button next to search result
+- Insert into watchlist table in Supabase
+- Max 20 tickers on free tier (show count: 12/20)
+
+Remove ticker: X button on each row, confirm with a small inline confirmation (not a modal).
+
+### Quick-add from Merger Analysis
+After importing a ticker, show "+ Add to Watchlist" button in the Company Card.
+
+## 4. Rate Limit Handling
+
+FMP free tier = 250 calls/day. Implement:
+- Cache all FMP responses in Supabase table fmp_cache: { ticker, endpoint, data JSONB, fetched_at TIMESTAMPTZ }
+- Before calling FMP, check if cached data is less than 4 hours old → serve from cache
+- This dramatically reduces API calls
+- Show "Cached data (Xh ago)" vs "Live data" indicator in UI
+
+Create the cache table:
+CREATE TABLE public.fmp_cache (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ticker TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  data JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(ticker, endpoint)
+);
+No RLS needed — shared cache for all users.
+```
+
+---
+
+---
+
+# CHUNK 6 — Feature: Deal History & Comparison Mode
+
+**Paste this prompt to Antigravity:**
+
+```
+Build a Deal History page and Deal Comparison feature for QuantEdge.
+
+## 1. History Page (/history)
+
+Show all saved_deals and dcf_models for the current user.
+
+### Layout
+Two tabs: "Merger Deals" and "DCF Models"
+
+Both tabs use the global <FinanceTable> component built in Chunk 3.
+
+### Merger Deals table columns:
+- Deal Name (clickable → opens deal in Merger Analysis page, pre-populated)
+- Target Company
+- A/D Result Y3 (colored: green if positive, red if negative)
+- Pro-Forma EPS
+- Purchase Price
+- Deal Mix (show as mini bar: [Cash%][Stock%][Debt%] in 3 colors)
+- Saved Date
+- Tags (chips)
+- Actions: Open | Compare | Delete
+
+### DCF Models table columns:
+- Model Name (clickable)  
+- Ticker
+- Intrinsic Value/Share (colored vs current price if available)
+- WACC | Terminal Growth
+- Enterprise Value
+- Saved Date
+- Actions: Open | Compare | Delete
+
+### Filtering & Search
+- Search bar filters by name/ticker
+- Filter by date range (last 7d, 30d, 90d, all)
+- Sort by any column header
+
+## 2. Compare Mode (Merger Deals)
+
+When user selects 2 deals via checkbox and clicks "Compare Selected":
+
+Show a side-by-side comparison view:
+- Left panel: Deal A inputs and results
+- Right panel: Deal B inputs and results
+- Highlighted cells: if Deal A value > Deal B, highlight that cell in subtle green; vice versa
+
+Comparison rows:
+- Purchase Price
+- Offer Premium %
+- Funding Mix (Cash/Stock/Debt %)
+- A/D Impact Year 1, 2, 3
+- Pro-Forma EPS
+- Synergies Required for Breakeven
+- Acquirer P/E vs Target P/E (Effective)
+
+Show a winner badge "Deal A is less dilutive by X%" if applicable.
+
+Add "Export Comparison as PDF" button — use browser print with a print-specific CSS 
+that shows both deals side by side on one page, with QuantEdge header/footer.
+
+## 3. Tags System
+
+On the Save Deal dialog:
+- Add a tags input (type and press Enter to add, X to remove)
+- Suggested tags that auto-appear: ["Accretive", "Dilutive", "All-Stock", "All-Cash", "Leveraged", "Cross-Border"]
+- Tags stored as TEXT[] in Supabase
+
+In History table, tags show as small rounded chips in --accent-primary color.
+Click a tag to filter table to that tag.
+
+## 4. Quick Reload
+
+When user clicks a saved deal to open it:
+- Navigate to /merger-analysis?dealId={id} 
+- On page load, fetch deal from Supabase and populate all form fields
+- Show a banner: "Loaded: Project Omega (saved 3 days ago) — [Edit] [Save New Version]"
+- "Save New Version" increments a version counter and saves as new row with same deal_name but version 2
+
+```
+
+---
+
+---
+
+# CHUNK 7 — Feature: LBO Quick Model (New Financial Engine)
+
+**Paste this prompt to Antigravity:**
+
+```
+Add a new financial engine to QuantEdge: LBO Quick Model (Leveraged Buyout Analysis).
+Add it to the sidebar under Financial Intelligence alongside Merger Analysis and DCF.
+Route: /lbo-model
+
+This is a simplified but professional LBO model for quick deal screening.
+
+## Backend (Python FastAPI) — app/core/lbo_logic.py
+
+Create an LBOModel class with this calculation logic:
+
+### Inputs
+- entry_ev: float (Entry Enterprise Value, $M)
+- entry_ebitda: float (Entry EBITDA, $M) → derives Entry Multiple
+- exit_multiple: float (EV/EBITDA at exit)
+- hold_period: int (years, 3-7)
+- debt_pct: float (% of EV funded by debt, typically 0.5-0.7)
+- interest_rate: float (blended rate on debt)
+- ebitda_growth_rate: float (annual EBITDA growth)
+- revenue_at_entry: float (for reference)
+- management_fee_pct: float (PE firm annual fee as % of equity, default 0.02)
+
+### Calculations
+```python
+def calculate(self):
+    # Entry
+    entry_equity = entry_ev * (1 - debt_pct)
+    entry_debt = entry_ev * debt_pct
+    entry_multiple = entry_ev / entry_ebitda
+    
+    # Exit (after hold_period years)
+    exit_ebitda = entry_ebitda * ((1 + ebitda_growth_rate) ** hold_period)
+    exit_ev = exit_ebitda * exit_multiple
+    
+    # Debt paydown (simplified: assume 10% of EBITDA per year goes to debt paydown)
+    annual_debt_paydown = entry_ebitda * 0.10  # simplified
+    remaining_debt = max(0, entry_debt - (annual_debt_paydown * hold_period))
+    
+    # Interest paid (impacts debt paydown indirectly — simplify as interest on avg debt)
+    avg_debt = (entry_debt + remaining_debt) / 2
+    total_interest = avg_debt * interest_rate * hold_period
+    
+    # Exit equity
+    exit_equity = exit_ev - remaining_debt
+    
+    # Returns
+    moic = exit_equity / entry_equity  # Multiple of Invested Capital
+    irr = ((exit_equity / entry_equity) ** (1 / hold_period)) - 1
+    
+    # Management fees drag
+    annual_fee = entry_equity * management_fee_pct
+    fee_drag_on_irr = (annual_fee * hold_period) / entry_equity / hold_period  # rough drag
+    
+    # Sensitivity: IRR across exit multiples (exit_multiple ± 2) and hold periods (3,4,5,6,7)
+    sensitivity = {}
+    for hp in [3, 4, 5, 6, 7]:
+        sensitivity[hp] = {}
+        for em in [exit_multiple - 2, exit_multiple - 1, exit_multiple, exit_multiple + 1, exit_multiple + 2]:
+            s_exit_ev = exit_ebitda * em  # use same exit_ebitda
+            s_exit_equity = s_exit_ev - remaining_debt
+            s_moic = s_exit_equity / entry_equity
+            s_irr = (s_moic ** (1/hp)) - 1
+            sensitivity[hp][em] = round(s_irr * 100, 1)
+    
+    return {
+        "entry_multiple": round(entry_multiple, 1),
+        "entry_equity": round(entry_equity, 1),
+        "entry_debt": round(entry_debt, 1),
+        "exit_ebitda": round(exit_ebitda, 1),
+        "exit_ev": round(exit_ev, 1),
+        "exit_equity": round(exit_equity, 1),
+        "remaining_debt": round(remaining_debt, 1),
+        "moic": round(moic, 2),
+        "irr": round(irr * 100, 1),
+        "sensitivity": sensitivity  # {hold_period: {exit_multiple: irr%}}
+    }
+```
+
+Register endpoint at /api/v1/modules/lbo/calculate (POST) using the registry pattern.
+
+## Frontend — /lbo-model page
+
+### Layout: same 2-column structure as other pages
+
+### Left Panel: Deal Parameters
+Section "Entry Assumptions":
+- Entry EV ($M)
+- Entry EBITDA ($M) → auto-computes Entry Multiple display below
+- Debt % of EV (slider 40%-80%, step 5%)
+
+Section "Capital Structure":
+- Interest Rate % (slider 5%-15%)
+- Hold Period (button toggle: 3Y | 4Y | 5Y | 6Y | 7Y — not a dropdown)
+
+Section "Value Creation":
+- Exit EV/EBITDA Multiple (slider, range entry_multiple ± 3)
+- Annual EBITDA Growth % (slider 0%-25%)
+
+Section "Fees":
+- Management Fee % (default 2%, range 1%-3%)
+
+### Right Panel: Live Intelligence Center
+
+#### KPI Row (4 cards):
+1. MOIC — "X.Xx" in large DM Mono, color: green if >2.5x, amber if 1.5-2.5x, red if <1.5x
+2. IRR — "XX.X%" same color logic (green >25%, amber 15-25%, red <15%)
+3. Entry Multiple — "X.Xx EV/EBITDA" in cyan
+4. Exit Equity — "$XXXm" in primary
+
+#### Debt Waterfall (Stacked bar chart — Recharts)
+Y-axis: $M. X-axis: Entry | Exit
+Show at Entry: [Equity][Debt] stacked
+Show at Exit: [Exit Equity][Remaining Debt] stacked
+Colors: Equity = var(--accent-primary), Debt = var(--negative), Remaining Debt = var(--accent-rose) at 60%
+
+#### Returns Sensitivity Matrix
+IRR% across Hold Period (columns: 3Y, 4Y, 5Y, 6Y, 7Y) vs Exit Multiple (rows: -2x to +2x from current)
+Use same heatmap styling as other sensitivity tables:
+- <15% IRR: red shades
+- 15-25%: amber shades  
+- >25%: green shades
+Highlight current cell (active hold period × active exit multiple) with white border
+
+#### IRR Bridge (Horizontal bar chart)
+Show what drives IRR:
+- EBITDA Growth contribution to returns
+- Multiple Expansion contribution
+- Debt Paydown contribution
+- Management Fee drag (shown as negative bar)
+This is a horizontal waterfall chart.
+
+Save LBO models to dcf_models table with context field "lbo", or create a separate lbo_models table.
+```
+
+---
+
+---
+
+# CHUNK 8 — Vercel Deployment & Performance
+
+**Paste this prompt to Antigravity:**
+
+```
+Configure QuantEdge for production deployment on Vercel with performance optimization.
+
+## 1. vercel.json Configuration
+
+Create vercel.json at project root:
+{
+  "framework": "nextjs",
+  "buildCommand": "cd frontend && pnpm build",
+  "outputDirectory": "frontend/.next",
+  "installCommand": "cd frontend && pnpm install",
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@app_url"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/backend/(.*)", "destination": "http://YOUR_BACKEND_URL/api/$1" }
+  ]
+}
+
+## 2. Backend Deployment Options (Free)
+
+Since FastAPI backend can't run on Vercel (Python), deploy it separately for free:
+
+Option A — Railway.app (recommended, free tier):
+- Create railway.toml: 
+  [build]
+  builder = "NIXPACKS"
+  buildCommand = "pip install -r requirements.txt"
+  [deploy]
+  startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+- Connect GitHub repo, auto-deploy on push
+- Free tier: $5 credit/month (sufficient for low traffic)
+
+Option B — Render.com (free tier):
+- Web Service type
+- Build command: pip install -r requirements.txt
+- Start command: uvicorn main:app --host 0.0.0.0 --port $PORT
+- Free tier spins down after inactivity (add a /health endpoint to keep alive via cron-job.org)
+
+Add a /health endpoint to FastAPI:
+@app.get("/health")
+def health(): return {"status": "ok", "version": "1.0.0"}
+
+## 3. Environment Variables in Vercel
+
+In Vercel dashboard → Project Settings → Environment Variables, add ALL env vars.
+Create a .env.example file in repo root documenting all required vars (no actual values):
+```
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  
+GROQ_API_KEY=your_groq_api_key
+RESEND_API_KEY=your_resend_api_key
+FMP_API_KEY=your_fmp_api_key
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+BACKEND_URL=https://your-backend.railway.app
+```
+
+## 4. Next.js Performance Optimizations
+
+In next.config.js:
+- Enable SWC minification
+- Enable compression
+- Configure image domains for FMP company logos
+- Add security headers (X-Frame-Options, CSP, etc.)
+
+```js
+const nextConfig = {
+  compress: true,
+  poweredByHeader: false,
+  images: {
+    domains: ['financialmodelingprep.com', 'logo.clearbit.com'],
+    formats: ['image/avif', 'image/webp'],
+  },
+  experimental: {
+    optimizePackageImports: ['recharts', 'lucide-react'],
+  },
+  headers: async () => [{
+    source: '/(.*)',
+    headers: [
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
+    ]
+  }]
+}
+```
+
+## 5. GitHub Repository Setup (for open source)
+
+Create these files in repo root:
+- README.md: Full project description, feature list, tech stack, getting started guide, screenshots section
+- CONTRIBUTING.md: How to contribute, code style guide, PR process
+- LICENSE: MIT license
+- .github/ISSUE_TEMPLATE/bug_report.md: Bug report template
+- .github/ISSUE_TEMPLATE/feature_request.md: Feature request template
+- .github/workflows/ci.yml: GitHub Actions CI that runs on PR: pnpm install, pnpm build, pnpm lint
+
+## 6. Loading Performance
+
+Implement these for a fast initial load:
+- Add loading.tsx files for each major route (shows skeleton screens while page loads)
+- Add error.tsx with a professional error UI for each route  
+- Lazy-load the Recharts library (dynamic import with ssr: false)
+- Lazy-load the AI Chat Panel component
+- Add <Suspense> boundaries around heavy components
+
+## 7. SEO & Metadata
+
+In app/layout.tsx:
+```tsx
+export const metadata = {
+  title: 'QuantEdge — Professional Financial Analysis Platform',
+  description: 'Open-source DCF, M&A, and LBO analysis tools for investment banking professionals. Free forever.',
+  openGraph: {
+    title: 'QuantEdge',
+    description: 'Professional-grade financial modeling. Free & open source.',
+    url: 'https://your-app.vercel.app',
+    siteName: 'QuantEdge',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: { card: 'summary_large_image', title: 'QuantEdge', description: '...' }
+}
+```
+```
+
+---
+
+---
+
+## FINAL NOTES FOR YOU (not a prompt)
+
+### Order of operations:
+1. Set up Supabase project and run the SQL from Chunk 1 in the SQL editor first
+2. Get all API keys listed at the top of this document
+3. Feed chunks 1-8 to Antigravity in order
+4. After Chunk 3 (UI), visually review before continuing
+5. Deploy backend to Railway first, then frontend to Vercel
+
+### What this gives you over the original:
+| Feature | Before | After |
+|---|---|---|
+| Auth | Clerk (paid) | Supabase (free) |
+| Database | SQLite (local) | Supabase Postgres (cloud) |
+| Email | None | Resend (branded emails) |
+| AI | None | Groq Llama 3.3 70B |
+| Market Data | Basic ticker | FMP with caching |
+| Visualizations | Basic Recharts | Redesigned professional charts |
+| Financial Engines | 2 (M&A + DCF) | 3 (+ LBO) |
+| Deployment | Local | Vercel + Railway (both free) |
+
+### Estimated monthly cost at scale: $0
+Everything used here has a free tier that covers a few hundred active users comfortably.
