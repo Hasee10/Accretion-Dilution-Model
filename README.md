@@ -49,24 +49,132 @@ This application is built on top of a powerful Admin Dashboard template, offerin
 
 ---
 
-## 🏗️ Technical Architecture
-
-### Backend (Python / FastAPI)
-
-* **Framework:** FastAPI for high-performance, asynchronous REST APIs.
-* **Core Logic:** Located in `app/core/finance_logic.py`, the `AccretionDilutionModel` class handles the heavy financial math (calculating purchase price, pro-forma EPS, phasing synergies over 3 years, and generating sensitivity data).
-* **Architecture:** Utilizes a Registry Pattern (`app/api/v1/registry.py`) allowing new financial modules (like LBO or Comps) to be seamlessly plugged into the API payload loop.
-* **Database Setup:** SQLAlchemy setup (`app/db/session.py`) for persisting saved deal data (SQLite by default).
-
-### Frontend (React / Vite / TypeScript)
-
-* **UI Framework:** React 19 powered by Vite for instant Hot Module Replacement (HMR).
-* **Routing:** TanStack Router for type-safe, optimized routing across the authenticated application pages.
-* **Component Library:** Shadcn UI (Tailwind CSS + Radix UI) for accessible, premium-feeling components (Cards, Sliders, Dialogs).
-* **Data Visualization:** Recharts for rendering the EPS Bridge (ComposedChart) and Contribution Analysis (BarChart).
-* **State Management & Fetching:** Axios for API communication, with dynamic debounce hooks to prevent API spamming during slider interactions.
-
 ---
+
+## 🏗️ System Architecture & Visualization
+
+### 1. High-Level Technical Stack
+
+The platform utilizes a modern, reactive stack designed for real-time financial modeling and high-fidelity data visualization.
+
+```mermaid
+graph TD
+    subgraph "Frontend Layer (React 19 + Vite)"
+        UI[Shadcn UI / Tailwind CSS]
+        Router[TanStack Router]
+        State[Axios + React Hooks]
+        Charts[Recharts / EPS Bridge]
+    end
+
+    subgraph "API Layer (FastAPI)"
+        Handlers[Async Request Handlers]
+        Registry[Module Registry]
+        Auth[Supabase Auth Middleware]
+    end
+
+    subgraph "Core Engines (Python)"
+        AD_Engine[Accretion / Dilution Logic]
+        DCF_Engine[DCF Valuation Logic]
+        AI_Analyst[AI Financial Chat Engine]
+    end
+
+    subgraph "Data Layer"
+        SQL[(SQLite / SQLAlchemy)]
+        Supa[(Supabase Cloud DB)]
+        Market[External Market APIs]
+    end
+
+    UI <--> State
+    State <--> Router
+    Router <--> Handlers
+    Handlers <--> Registry
+    Registry <--> AD_Engine
+    Registry <--> DCF_Engine
+    Handlers <--> Supa
+    Handlers <--> Market
+    AD_Engine <--> SQL
+```
+
+### 2. Module Registry & Dynamic Dispatch
+
+The `ModuleRegistry` allows the platform to scale horizontally by plugging in new financial engines (e.g., LBO, Comps) without restructuring the API.
+
+```mermaid
+graph LR
+    subgraph "Incoming Request"
+        Req1["/api/v1/modules/accretion_dilution"]
+        Req2["/api/v1/modules/dcf"]
+        Req3["/api/v1/modules/lbo"]
+    end
+
+    Registry{{"ModuleRegistry.get_module(name)"}}
+
+    subgraph "Financial Engines"
+        AD_Class[[AccretionDilutionModel]]
+        DCF_Class[[DCFModel]]
+        LBO_Class[[LBOModel]]
+        Enterprise[[EnterpriseValue]]
+    end
+
+    subgraph "Output"
+        JSON["JSON Response (Stats + Plots)"]
+    end
+
+    Req1 --> Registry
+    Req2 --> Registry
+    Req3 --> Registry
+    
+    Registry -- "Dispatch" --> AD_Class
+    Registry -- "Dispatch" --> DCF_Class
+    Registry -- "Dispatch" --> LBO_Class
+    
+    AD_Class --> JSON
+    DCF_Class --> JSON
+    LBO_Class --> JSON
+```
+
+### 3. Financial Logic Execution Flow (A/D Model)
+
+This detailed sequence shows the cascading calculations performed by the `AccretionDilutionModel` core.
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend (UI Sliders)
+    participant BE as Backend (FastAPI)
+    participant Core as AccretionDilutionModel
+
+    FE->>BE: POST request with Deal Data
+    BE->>Core: initialize(deal_data)
+    
+    rect rgb(240, 240, 240)
+    Note over Core: 1. Calculate Purchase Price
+    Core->>Core: Equity Value * (1 + Premium)
+    end
+
+    rect rgb(230, 240, 255)
+    Note over Core: 2. Debt/Cash Adjustments
+    Core->>Core: Interest Expense (After-Tax)
+    Core->>Core: Foregone Interest (After-Tax)
+    Core->>Core: New D&A Write-Up
+    end
+
+    rect rgb(230, 255, 230)
+    Note over Core: 3. Phased Synergy Realization
+    Core->>Core: Year 1 (25% + CTA Hit)
+    Core->>Core: Year 2 (75%)
+    Core->>Core: Year 3 (100% Fully Realized)
+    end
+
+    rect rgb(255, 240, 230)
+    Note over Core: 4. Sensitivity Analysis
+    Core->>Core: Run Synergy vs. Premium Matrix
+    Core->>Core: Run Purchase Price vs. Cost of Debt Matrix
+    end
+
+    Core-->>BE: Returns Detailed KPI Dictionary
+    BE-->>FE: Returns JSON (EPS Bridge + Heatmaps)
+    FE-->>FE: Render Recharts Visualizations
+```
 
 ## 🚀 Getting Started
 
