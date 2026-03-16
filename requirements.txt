@@ -13,3 +13,5 @@ groq
 httpx
 resend
 stripe
+email-validator
+psycopg2-binary

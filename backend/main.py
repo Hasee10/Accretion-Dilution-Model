@@ -7,6 +7,7 @@ from app.core.lbo_logic import LBOModel
 from app.schemas.deal import DealInput
 from app.schemas.lbo import LBOInput
 from app.api.v1.endpoints import deals, dcf, email, ai_chat, market_data, lbo, enterprise, news
+import os
 
 try:
     from app.api.v1.endpoints import stripe
@@ -22,7 +23,16 @@ registry.register("lbo", LBOModel)
 
 app = FastAPI(title="Modular Financial Platform - Suite Edition")
 
-origins = ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"]
+origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]
+
+frontend_url = os.getenv("APP_URL")
+if frontend_url:
+    origins.append(frontend_url.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
