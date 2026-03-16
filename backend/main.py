@@ -7,6 +7,7 @@ from app.core.lbo_logic import LBOModel
 from app.schemas.deal import DealInput
 from app.schemas.lbo import LBOInput
 from app.api.v1.endpoints import deals, dcf, email, ai_chat, market_data, lbo, enterprise, news
+import logging
 import os
 
 try:
@@ -15,8 +16,16 @@ except ModuleNotFoundError:
     stripe = None
 
 
+logger = logging.getLogger(__name__)
+
+
 # ---------------- DATABASE INIT ----------------
-Base.metadata.create_all(bind=engine)
+db_ready = True
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as exc:
+    db_ready = False
+    logger.exception("Database initialization failed during startup: %s", exc)
 
 
 # ---------------- MODULE REGISTRY ----------------
@@ -34,18 +43,17 @@ origins = [
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    "https://quant-edge-finance-kpd5.vercel.app",
 ]
 
-# Railway environment frontend URL
-frontend_url = os.getenv("APP_URL")
-
-if frontend_url:
-    origins.append(frontend_url.rstrip("/"))
+for env_key in ("APP_URL", "FRONTEND_URL"):
+    frontend_url = os.getenv(env_key)
+    if frontend_url:
+        origins.append(frontend_url.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +79,8 @@ if stripe is not None:
 def read_root():
     return {
         "status": "ok",
-        "modules": registry.list_modules()
+        "modules": registry.list_modules(),
+        "db_ready": db_ready,
     }
 
 
