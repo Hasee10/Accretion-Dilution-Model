@@ -14,16 +14,21 @@ try:
 except ModuleNotFoundError:
     stripe = None
 
-# Initialize DB tables
+
+# ---------------- DATABASE INIT ----------------
 Base.metadata.create_all(bind=engine)
 
-# Register Modules
+
+# ---------------- MODULE REGISTRY ----------------
 registry.register("accretion_dilution", AccretionDilutionModel)
 registry.register("lbo", LBOModel)
 
+
+# ---------------- APP ----------------
 app = FastAPI(title="Modular Financial Platform - Suite Edition")
 
-# ---- CORS FIX ----
+
+# ---------------- CORS FIX ----------------
 origins = [
     "http://localhost:5173",
     "http://localhost:5174",
@@ -32,20 +37,22 @@ origins = [
     "https://quant-edge-finance-kpd5.vercel.app",
 ]
 
-# Allow dynamic frontend URL from Railway env
+# Railway environment frontend URL
 frontend_url = os.getenv("APP_URL")
+
 if frontend_url:
     origins.append(frontend_url.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(set(origins)),
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---- ROUTERS ----
+
+# ---------------- ROUTERS ----------------
 app.include_router(deals.router, prefix="/api/v1")
 app.include_router(dcf.router, prefix="/api/v1/modules/dcf", tags=["dcf"])
 app.include_router(lbo.router, prefix="/api/v1/modules/lbo", tags=["lbo"])
@@ -58,14 +65,20 @@ app.include_router(enterprise.router, prefix="/api/v1")
 if stripe is not None:
     app.include_router(stripe.router, prefix="/api/v1")
 
-# ---- ROOT ----
+
+# ---------------- ROOT ----------------
 @app.get("/")
 def read_root():
-    return {"status": "ok", "modules": registry.list_modules()}
+    return {
+        "status": "ok",
+        "modules": registry.list_modules()
+    }
 
-# ---- DYNAMIC MODULE DISPATCH ----
+
+# ---------------- MODULE DISPATCH ----------------
 @app.post("/api/v1/modules/{module_name}")
 def calculate_module(module_name: str, payload: dict):
+
     module_cls = registry.get_module(module_name)
 
     if module_name == "accretion_dilution":
