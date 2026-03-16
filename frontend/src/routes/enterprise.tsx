@@ -4,6 +4,7 @@ import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { apiUrl } from '@/lib/api'
 import { toast } from 'sonner'
 
 export const Route = createFileRoute('/enterprise')({
@@ -11,7 +12,6 @@ export const Route = createFileRoute('/enterprise')({
 })
 
 function EnterprisePage() {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
   const [form, setForm] = useState({ company: '', email: '', teamSize: '11-25', message: '' })
   const [submitting, setSubmitting] = useState(false)
 
@@ -19,7 +19,7 @@ function EnterprisePage() {
     event.preventDefault()
     setSubmitting(true)
     try {
-      await axios.post(`${apiBaseUrl}/api/v1/enterprise/contact`, form)
+      await axios.post(apiUrl('/api/v1/enterprise/contact'), form)
       toast.success('We will be in touch within 1 business day.')
       setForm({ company: '', email: '', teamSize: '11-25', message: '' })
     } catch (error: any) {

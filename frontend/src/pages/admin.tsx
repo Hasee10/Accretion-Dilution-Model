@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { PremiumCard } from '@/components/ui/premium-card'
 import { FinanceTable, type FinanceColumn } from '@/components/ui/finance-table'
+import { apiUrl } from '@/lib/api'
 import { supabase } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/activity-log'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -134,7 +135,6 @@ function buildActivityText(activity: ActivityLogEntry, userName: string) {
 
 export default function AdminPage() {
   const navigate = useNavigate()
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const authUser = useAuthStore((state) => state.auth.user)
   const currentOrg = useOrgStore((state) => state.currentOrg)
@@ -377,7 +377,7 @@ export default function AdminPage() {
     }
 
     const inviterName = authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'QuantEdge admin'
-    await Promise.allSettled((data ?? []).map((invite) => axios.post(`${apiBaseUrl}/api/v1/email/firm-invite`, {
+    await Promise.allSettled((data ?? []).map((invite) => axios.post(apiUrl('/api/v1/email/firm-invite'), {
       email: invite.email,
       inviterName,
       firmName: currentOrg.name,
@@ -486,7 +486,7 @@ export default function AdminPage() {
       return
     }
     try {
-      const response = await axios.post(`${apiBaseUrl}/api/v1/stripe/checkout`, {
+      const response = await axios.post(apiUrl('/api/v1/stripe/checkout'), {
         org_id: currentOrg.id,
         user_id: userId,
         user_email: authUser.email,
