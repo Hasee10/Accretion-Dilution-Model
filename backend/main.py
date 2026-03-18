@@ -39,21 +39,21 @@ app = FastAPI(title="Modular Financial Platform - Suite Edition")
 
 # ---------------- CORS FIX ----------------
 origins = [
+    "https://quant-edge-finance-kpd5.vercel.app",
     "http://localhost:5173",
-    "http://localhost:5174",
     "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
 ]
 
 for env_key in ("APP_URL", "FRONTEND_URL"):
     frontend_url = os.getenv(env_key)
     if frontend_url:
-        origins.append(frontend_url.rstrip("/"))
+        normalized = frontend_url.rstrip("/")
+        if normalized not in origins:
+            origins.append(normalized)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
