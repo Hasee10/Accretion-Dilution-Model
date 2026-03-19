@@ -78,12 +78,14 @@ export function SignUpForm({
   const currentUser = useAuthStore((state) => state.auth.user)
   const setCurrentOrg = useOrgStore((state) => state.setCurrentOrg)
   const setCurrentMembership = useOrgStore((state) => state.setCurrentMembership)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [createdEmail, setCreatedEmail] = useState<string | null>(null)
   const [matchedOrgName, setMatchedOrgName] = useState<string | null>(null)
-  const [inviteToken, setInviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? '')
+  const [inviteToken, setInviteToken] = useState(
+    () => new URLSearchParams(window.location.search).get('invite') ?? ''
+  )
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -101,7 +103,7 @@ export function SignUpForm({
   const strength = getPasswordStrength(passwordValue)
 
   async function onSubmit(data: FormValues) {
-    if (isLoading) return
+    if (isSubmitting) return
 
     setAuthError(null)
 
@@ -119,60 +121,58 @@ export function SignUpForm({
       return
     }
 
-    setIsLoading(true)
-    setAuthError(null)
+    setIsSubmitting(true)
 
-    // 1. Create Supabase auth user
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    })
-
-    if (signUpError) {
-      if (signUpError.status === 429) {
-        setAuthError('Too many signup attempts. Please wait a minute and try again.')
-      } else {
-        setAuthError(signUpError.message)
-      }
-      setIsLoading(false)
-      return
-    }
-
-    // 2. Insert into public.profiles
-    if (authData.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: authData.user.id,
-        full_name: fullName,
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
-        company: data.company || null,
-        role: 'analyst',
-      } as never)
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      })
 
-      if (profileError) {
-        // Not fatal — auth user exists, profile can be created on first login
-        console.warn('Profile insert failed:', profileError.message)
+      if (signUpError) {
+        if (signUpError.status === 429) {
+          setAuthError('Too many signup attempts. Please wait a minute and try again.')
+        } else {
+          setAuthError(signUpError.message)
+        }
+        return
       }
+
+      if (authData.user) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: authData.user.id,
+          full_name: fullName,
+          email,
+          company: data.company || null,
+          role: 'analyst',
+        } as never)
+
+        if (profileError) {
+          console.warn('Profile insert failed:', profileError.message)
+        }
+      }
+
+      toast.success('Account created!')
+      sendWelcomeEmail(email, fullName.split(' ')[0])
+      setCreatedEmail(email)
+      const matchedOrg = await lookupOrganizationByDomain(email).catch(() => null)
+      setMatchedOrgName(matchedOrg?.name ?? null)
+
+      if (authData.session) {
+        useAuthStore.getState().auth.setSession(authData.session)
+        void navigate({ to: '/dashboard' })
+        return
+      }
+
+      setSuccess(email)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setIsLoading(false)
-    toast.success('Account created!')
-    sendWelcomeEmail(email, fullName.split(' ')[0])
-    setCreatedEmail(email)
-    const matchedOrg = await lookupOrganizationByDomain(email).catch(() => null)
-    setMatchedOrgName(matchedOrg?.name ?? null)
-
-    if (authData.session) {
-      useAuthStore.getState().auth.setSession(authData.session)
-      void navigate({ to: '/dashboard' })
-      return
-    }
-
-    setSuccess(email)
   }
 
   async function handleJoinFirm() {
@@ -207,12 +207,15 @@ export function SignUpForm({
 
       const { data: membership, error: memberError } = await supabase
         .from('org_members')
-        .upsert({
-          org_id: orgId,
-          user_id: currentUser.id,
-          role,
-          is_active: true,
-        } as never, { onConflict: 'org_id,user_id' })
+        .upsert(
+          {
+            org_id: orgId,
+            user_id: currentUser.id,
+            role,
+            is_active: true,
+          } as never,
+          { onConflict: 'org_id,user_id' }
+        )
         .select('*')
         .single()
 
@@ -261,7 +264,9 @@ export function SignUpForm({
           <div className='rounded-xl border border-border-subtle bg-bg-elevated p-4'>
             <p className='font-display text-lg text-foreground'>Join Your Firm</p>
             <p className='mt-2 text-sm text-muted-foreground'>
-              {matchedOrgName ? `We found your firm: ${matchedOrgName}.` : 'Enter an invite code or join via your firm domain.'}
+              {matchedOrgName
+                ? `We found your firm: ${matchedOrgName}.`
+                : 'Enter an invite code or join via your firm domain.'}
             </p>
             <Input
               value={inviteToken}
@@ -279,10 +284,18 @@ export function SignUpForm({
             <p className='mt-2 text-sm text-muted-foreground'>
               Continue with a solo workspace and create or join a firm later.
             </p>
-            <Button className='mt-4 w-full' variant='outline' onClick={() => void navigate({ to: '/dashboard' })}>
+            <Button
+              className='mt-4 w-full'
+              variant='outline'
+              onClick={() => void navigate({ to: '/dashboard' })}
+            >
               Continue Solo
             </Button>
-            <Button className='mt-3 w-full' variant='ghost' onClick={() => void navigate({ to: '/register' })}>
+            <Button
+              className='mt-3 w-full'
+              variant='ghost'
+              onClick={() => void navigate({ to: '/register' })}
+            >
               Create a Firm Instead
             </Button>
           </div>
@@ -355,7 +368,7 @@ export function SignUpForm({
               </FormControl>
               {passwordValue && (
                 <div className='mt-1 space-y-1'>
-                  <div className='h-1.5 w-full rounded bg-muted overflow-hidden'>
+                  <div className='h-1.5 w-full overflow-hidden rounded bg-muted'>
                     <div
                       className={cn('h-full rounded transition-all', strength.color)}
                       style={{ width: strength.width }}
@@ -387,19 +400,22 @@ export function SignUpForm({
           render={({ field }) => (
             <FormItem className='flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm'>
               <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
               <div className='space-y-1 leading-none'>
-                <FormLabel className='text-sm text-muted-foreground font-normal leading-snug'>
+                <FormLabel className='text-sm font-normal leading-snug text-muted-foreground'>
                   I agree to the{' '}
-                  <a href='/terms' className='font-medium text-foreground underline underline-offset-4 hover:text-primary'>
+                  <a
+                    href='/terms'
+                    className='font-medium text-foreground underline underline-offset-4 hover:text-primary'
+                  >
                     Terms of Service
                   </a>{' '}
                   and{' '}
-                  <a href='/privacy' className='font-medium text-foreground underline underline-offset-4 hover:text-primary'>
+                  <a
+                    href='/privacy'
+                    className='font-medium text-foreground underline underline-offset-4 hover:text-primary'
+                  >
                     Privacy Policy
                   </a>
                 </FormLabel>
@@ -408,8 +424,8 @@ export function SignUpForm({
             </FormItem>
           )}
         />
-        <Button className='mt-2' disabled={isLoading}>
-          {isLoading ? <Loader2 className='animate-spin' /> : <UserPlus />}
+        <Button className='mt-2' disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 className='animate-spin' /> : <UserPlus />}
           Create Account
         </Button>
       </form>
