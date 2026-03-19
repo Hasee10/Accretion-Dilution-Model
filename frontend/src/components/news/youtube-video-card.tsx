@@ -9,6 +9,12 @@ function getVideoId(video: YouTubeVideo) {
   const watchId = video.youtube_url?.split('v=')[1]?.split('&')[0]
   if (watchId) return watchId
 
+  const thumbnailId = video.thumbnail_url?.split('/vi/')[1]?.split('/')[0]
+  if (thumbnailId) return thumbnailId
+
+  const webpThumbnailId = video.thumbnail_url?.split('/vi_webp/')[1]?.split('/')[0]
+  if (webpThumbnailId) return webpThumbnailId
+
   return video.id
 }
 

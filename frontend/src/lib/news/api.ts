@@ -20,12 +20,12 @@ export type YouTubeVideo = {
   id: string
   title: string
   channel: string
-  channel_id: string
+  channel_id?: string
   published_at: string
-  thumbnail_url: string
-  youtube_url: string
-  embed_url: string
-  description: string
+  thumbnail_url?: string
+  youtube_url?: string
+  embed_url?: string
+  description?: string
 }
 
 export type NewsFeedResponse = {
@@ -87,7 +87,40 @@ export async function fetchNewsVideos(params?: {
       max_results: params?.maxResults ?? 12,
     },
   })
-  return response.data as NewsVideosResponse
+
+  const videos = Array.isArray(response.data?.videos) ? response.data.videos : []
+  const normalizedVideos = videos
+    .map((video: any, index: number) => {
+      const rawThumbnail = video.thumbnail_url ?? video.thumbnail ?? ''
+      const rawYoutubeUrl = video.youtube_url ?? ''
+      const rawEmbedUrl = video.embed_url ?? ''
+      const videoId =
+        video.videoId ??
+        video.youtube_id ??
+        rawEmbedUrl.split('/embed/')[1]?.split('?')[0] ??
+        rawYoutubeUrl.split('v=')[1]?.split('&')[0] ??
+        rawThumbnail.split('/vi/')[1]?.split('/')[0] ??
+        rawThumbnail.split('/vi_webp/')[1]?.split('/')[0] ??
+        video.id
+
+      return {
+        id: String(videoId ?? `video-${index}`),
+        title: String(video.title ?? 'YouTube video'),
+        channel: String(video.channel ?? 'YouTube'),
+        channel_id: video.channel_id ?? video.channelId ?? '',
+        published_at: String(video.published_at ?? video.publishedAt ?? new Date().toISOString()),
+        thumbnail_url: rawThumbnail || undefined,
+        youtube_url: rawYoutubeUrl || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined),
+        embed_url: rawEmbedUrl || (videoId ? `https://www.youtube.com/embed/${videoId}` : undefined),
+        description: String(video.description ?? ''),
+      } satisfies YouTubeVideo
+    })
+    .filter((video: YouTubeVideo) => !!video.id)
+
+  return {
+    ...response.data,
+    videos: normalizedVideos,
+  } as NewsVideosResponse
 }
 
 export async function fetchTickerNews(ticker: string) {

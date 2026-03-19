@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { DataValue } from '@/components/ui/data-value'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -37,6 +38,10 @@ export function TickerSearch({
         setResults(payload.results)
         setOpen(true)
         setActiveIndex(0)
+      } catch (error: any) {
+        setResults([])
+        setOpen(false)
+        toast.error(error.message || 'Ticker search is temporarily unavailable.')
       } finally {
         setLoading(false)
       }

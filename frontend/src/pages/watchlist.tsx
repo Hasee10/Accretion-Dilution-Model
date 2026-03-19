@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DataValue } from '@/components/ui/data-value'
 import { FinanceColumn, FinanceTable } from '@/components/ui/finance-table'
@@ -32,6 +33,7 @@ export default function WatchlistPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [confirmTicker, setConfirmTicker] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -41,41 +43,86 @@ export default function WatchlistPage() {
   async function loadWatchlist() {
     if (!userId) return
     setLoading(true)
-    const { data } = await supabase.from('watchlist').select('*').eq('user_id', userId).order('added_at', { ascending: false })
-    const rows = (data || []) as WatchlistRow[]
-    setItems(rows)
-    if (rows.length) {
-      const quoteRows = await fetchQuotes(rows.map((row) => row.ticker))
-      setQuotes(Object.fromEntries(quoteRows.map((quote) => [quote.ticker, quote])))
-    } else {
+    setErrorMessage(null)
+    try {
+      const { data, error } = await supabase
+        .from('watchlist')
+        .select('*')
+        .eq('user_id', userId)
+        .order('added_at', { ascending: false })
+
+      if (error) throw error
+
+      const rows = (data || []) as WatchlistRow[]
+      setItems(rows)
+
+      if (rows.length) {
+        try {
+          const quoteRows = await fetchQuotes(rows.map((row) => row.ticker))
+          setQuotes(Object.fromEntries(quoteRows.map((quote) => [quote.ticker, quote])))
+        } catch (error: any) {
+          setQuotes({})
+          setErrorMessage(error.message || 'Market data is temporarily unavailable.')
+        }
+      } else {
+        setQuotes({})
+      }
+    } catch (error: any) {
+      setItems([])
       setQuotes({})
+      setErrorMessage(error.message || 'Failed to load your watchlist.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function refreshQuotes() {
     if (!items.length) return
     setRefreshing(true)
-    const quoteRows = await fetchQuotes(items.map((row) => row.ticker))
-    setQuotes(Object.fromEntries(quoteRows.map((quote) => [quote.ticker, quote])))
-    setRefreshing(false)
+    setErrorMessage(null)
+    try {
+      const quoteRows = await fetchQuotes(items.map((row) => row.ticker))
+      setQuotes(Object.fromEntries(quoteRows.map((quote) => [quote.ticker, quote])))
+    } catch (error: any) {
+      setQuotes({})
+      setErrorMessage(error.message || 'Failed to refresh market data.')
+      toast.error(error.message || 'Failed to refresh market data.')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   async function addTicker(result: SearchResult) {
     if (!userId || items.length >= 20) return
-    await supabase.from('watchlist').insert({
-      user_id: userId,
-      ticker: result.ticker,
-      company_name: result.companyName,
-    } as never)
-    await loadWatchlist()
+    try {
+      const { error } = await supabase.from('watchlist').insert({
+        user_id: userId,
+        ticker: result.ticker,
+        company_name: result.companyName,
+      } as never)
+
+      if (error) throw error
+      await loadWatchlist()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add ticker to watchlist.')
+    }
   }
 
   async function removeTicker(ticker: string) {
     if (!userId) return
-    await supabase.from('watchlist').delete().eq('user_id', userId).eq('ticker', ticker)
-    setConfirmTicker(null)
-    await loadWatchlist()
+    try {
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('user_id', userId)
+        .eq('ticker', ticker)
+
+      if (error) throw error
+      setConfirmTicker(null)
+      await loadWatchlist()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove ticker from watchlist.')
+    }
   }
 
   const rows = useMemo(() => items.map((item) => ({ ...item, quote: quotes[item.ticker] })), [items, quotes])
@@ -131,6 +178,12 @@ export default function WatchlistPage() {
             {items.length}/20
           </div>
         </div>
+
+        {errorMessage ? (
+          <div className='rounded-lg border border-accent-amber/20 bg-accent-amber/10 px-4 py-3 font-ui text-sm text-accent-amber'>
+            {errorMessage}
+          </div>
+        ) : null}
 
         <FinanceTable data={rows} columns={columns} loading={loading} emptyMessage='No watched tickers yet.' />
       </div>
