@@ -1,11 +1,9 @@
-import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
+ï»¿import { createFileRoute, Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   BarChart3,
   Bookmark,
   ChevronRight,
   Newspaper,
-  ShieldCheck,
-  Sparkles,
   Users2,
 } from 'lucide-react'
 import { z } from 'zod'
@@ -29,7 +27,7 @@ const featureCards = [
   {
     title: 'Stay on top of the market',
     description:
-      "Watchlists, ticker-linked news, and market-moving stories — contextually linked to the deals you're working on.",
+      "Watchlists, ticker-linked news, and market-moving stories - contextually linked to the deals you're working on.",
     icon: Newspaper,
   },
   {
@@ -58,7 +56,12 @@ const previewNav = [
 
 function LandingPage() {
   const { redirect: redirectTarget } = useSearch({ from: '/' })
+  const navigate = useNavigate()
   const authSearch = redirectTarget ? { redirect: redirectTarget } : undefined
+
+  function goToAuth(to: '/sign-in' | '/sign-up') {
+    void navigate({ to, search: authSearch })
+  }
 
   return (
     <div className='min-h-screen scroll-smooth bg-[#0A0A0B] text-white'>
@@ -78,15 +81,15 @@ function LandingPage() {
             <Button
               variant='ghost'
               className='text-white transition-all duration-200 ease-out hover:bg-white/6 hover:text-white'
-              asChild
+              onClick={() => goToAuth('/sign-in')}
             >
-              <Link to='/sign-in' search={authSearch}>Sign in</Link>
+              Sign in
             </Button>
             <Button
               className='bg-[#E8540A] text-white transition-all duration-200 ease-out hover:bg-[#F0641C]'
-              asChild
+              onClick={() => goToAuth('/sign-up')}
             >
-              <Link to='/sign-up' search={authSearch}>Get started free</Link>
+              Get started free
             </Button>
           </div>
         </div>
@@ -115,24 +118,24 @@ function LandingPage() {
             </h1>
 
             <p className='mt-6 max-w-[520px] font-ui text-lg leading-8 text-[#888]'>
-              QuantEdge brings valuation models, market intelligence, and team collaboration into one system — so you stop switching between ten scattered tools.
+              QuantEdge brings valuation models, market intelligence, and team collaboration into one system - so you stop switching between ten scattered tools.
             </p>
 
             <div className='mt-10 flex flex-col gap-3 sm:flex-row'>
               <Button
                 size='lg'
                 className='bg-[#E8540A] px-7 text-white transition-all duration-200 ease-out hover:bg-[#F0641C]'
-                asChild
+                onClick={() => goToAuth('/sign-up')}
               >
-                <Link to='/sign-up' search={authSearch}>Get started free</Link>
+                Get started free
               </Button>
               <Button
                 size='lg'
                 variant='outline'
                 className='border-white/10 bg-transparent px-7 text-white transition-all duration-200 ease-out hover:border-white/20 hover:bg-white/6'
-                asChild
+                onClick={() => goToAuth('/sign-in')}
               >
-                <Link to='/sign-in' search={authSearch}>Sign in</Link>
+                Sign in
               </Button>
             </div>
 
@@ -206,12 +209,10 @@ function LandingPage() {
             <Button
               size='lg'
               className='mt-8 bg-[#E8540A] px-7 text-white transition-all duration-200 ease-out hover:bg-[#F0641C]'
-              asChild
+              onClick={() => goToAuth('/sign-up')}
             >
-              <Link to='/sign-up' search={authSearch}>
-                Create free account
-                <ChevronRight className='h-4 w-4' />
-              </Link>
+              Create free account
+              <ChevronRight className='h-4 w-4' />
             </Button>
             <p className='mt-4 font-ui text-sm text-[#888]'>Takes 2 minutes. Your models stay private by default.</p>
           </div>
@@ -240,4 +241,3 @@ function LandingPage() {
     </div>
   )
 }
-

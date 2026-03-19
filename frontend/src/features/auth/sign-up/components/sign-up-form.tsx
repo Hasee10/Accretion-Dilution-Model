@@ -34,7 +34,7 @@ const formSchema = z
     password: z
       .string()
       .min(1, 'Please enter your password')
-      .min(8, 'Password must be at least 8 characters'),
+      .min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     acceptTerms: z.boolean().refine((val) => val === true, {
       message: 'You must accept the Terms of Service and Privacy Policy',
@@ -101,22 +101,44 @@ export function SignUpForm({
   const strength = getPasswordStrength(passwordValue)
 
   async function onSubmit(data: FormValues) {
+    if (isLoading) return
+
+    setAuthError(null)
+
+    const email = data.email.trim().toLowerCase()
+    const password = data.password
+    const fullName = data.full_name.trim()
+
+    if (!email) {
+      setAuthError('Please enter your email.')
+      return
+    }
+
+    if (!password) {
+      setAuthError('Please enter your password.')
+      return
+    }
+
     setIsLoading(true)
     setAuthError(null)
 
     // 1. Create Supabase auth user
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
+      email,
+      password,
       options: {
         data: {
-          full_name: data.full_name,
+          full_name: fullName,
         },
       },
     })
 
     if (signUpError) {
-      setAuthError(signUpError.message)
+      if (signUpError.status === 429) {
+        setAuthError('Too many signup attempts. Please wait a minute and try again.')
+      } else {
+        setAuthError(signUpError.message)
+      }
       setIsLoading(false)
       return
     }
@@ -125,11 +147,11 @@ export function SignUpForm({
     if (authData.user) {
       const { error: profileError } = await supabase.from('profiles').insert({
         id: authData.user.id,
-        full_name: data.full_name,
-        email: data.email,
+        full_name: fullName,
+        email,
         company: data.company || null,
         role: 'analyst',
-      })
+      } as never)
 
       if (profileError) {
         // Not fatal — auth user exists, profile can be created on first login
@@ -139,11 +161,18 @@ export function SignUpForm({
 
     setIsLoading(false)
     toast.success('Account created!')
-    sendWelcomeEmail(data.email, data.full_name.split(' ')[0])
-    setCreatedEmail(data.email)
-    const matchedOrg = await lookupOrganizationByDomain(data.email).catch(() => null)
+    sendWelcomeEmail(email, fullName.split(' ')[0])
+    setCreatedEmail(email)
+    const matchedOrg = await lookupOrganizationByDomain(email).catch(() => null)
     setMatchedOrgName(matchedOrg?.name ?? null)
-    setSuccess(data.email)
+
+    if (authData.session) {
+      useAuthStore.getState().auth.setSession(authData.session)
+      void navigate({ to: '/dashboard' })
+      return
+    }
+
+    setSuccess(email)
   }
 
   async function handleJoinFirm() {
@@ -206,7 +235,7 @@ export function SignUpForm({
 
       setCurrentOrg(org)
       setCurrentMembership(membership)
-      toast.success(`Joined ${org.name}`)
+      toast.success(`Joined ${(org as { name: string }).name}`)
       void navigate({ to: '/dashboard' })
     } catch (error: any) {
       toast.error(error.message || 'Failed to join firm')
@@ -322,7 +351,7 @@ export function SignUpForm({
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <PasswordInput placeholder='Min. 8 characters' {...field} />
+                <PasswordInput placeholder='Min. 6 characters' {...field} />
               </FormControl>
               {passwordValue && (
                 <div className='mt-1 space-y-1'>
